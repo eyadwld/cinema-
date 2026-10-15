@@ -1,0 +1,74 @@
+# Development stack: live reload via bind mounts + nodemon.
+#   docker compose -f docker-compose-dev.yml up --build
+services:
+  node-app:
+    build:
+      context: .
+      args:
+        - NODE_ENV=development
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build:
+      context: .
+      args:
+        - NODE_ENV=development
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    command: npm run worker
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  mongo:
+    image: mongo:9.0.2
+    # keyFile is mandatory for auth + replica set; generated on start.
+    entrypoint: >
+      bash -c '
+      [ -f /tmp/mongo-key ] || openssl rand -base64 756 > /tmp/mongo-key;
+      chmod 400 /tmp/mongo-key && chown 999:999 /tmp/mongo-key;
+      exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo-key;
+      '
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: eyad
+      MONGO_INITDB_ROOT_PASSWORD: eyad208
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-db:/data/db
+    healthcheck:
+      test: >
+        mongosh "mongodb://eyad:eyad208@localhost:27017/admin?directConnection=true" --quiet --eval "try { quit(rs.status().myState === 1 ? 0 : 1) } catch (e) { try { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) } catch (e2) {} quit(1) }"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+  redis:
+    image: redis:8.10.2
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mongo-db:
+  redis-data:

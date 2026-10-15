@@ -1,0 +1,24 @@
+{
+  "info": { "name": "Cinema - payment/booking flow", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "accessToken", "value": "" },
+    { "key": "showtimeId", "value": "" },
+    { "key": "seatId", "value": "" },
+    { "key": "lockToken", "value": "" },
+    { "key": "bookingId", "value": "" }
+  ],
+  "item": [
+    { "name": "1-register", "request": { "method": "POST", "url": "{{baseUrl}}/auth/register", "body": { "mode": "raw", "raw": "{\"name\":\"Test\",\"email\":\"t@t.com\",\"password\":\"password123\",\"passwordConfirm\":\"password123\"}", "options": { "raw": { "language": "json" } } } } },
+    { "name": "2-verify-email", "request": { "method": "POST", "url": "{{baseUrl}}/auth/verify-email", "body": { "mode": "raw", "raw": "{\"email\":\"t@t.com\",\"otp\":\"123456\"}", "options": { "raw": { "language": "json" } } } } },
+    { "name": "3-login", "request": { "method": "POST", "url": "{{baseUrl}}/auth/login", "body": { "mode": "raw", "raw": "{\"email\":\"t@t.com\",\"password\":\"password123\"}", "options": { "raw": { "language": "json" } } } } },
+    { "name": "4-lock-seats", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/showtimes/{{showtimeId}}/seat-locks", "body": { "mode": "raw", "raw": "{\"seatIds\":[\"{{seatId}}\"]}", "options": { "raw": { "language": "json" } } } } },
+    { "name": "5-create-booking", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/bookings/showtimes/{{showtimeId}}", "body": { "mode": "raw", "raw": "{\"seatIds\":[\"{{seatId}}\"],\"lockToken\":\"{{lockToken}}\"}", "options": { "raw": { "language": "json" } } } } },
+    { "name": "6-pay-success", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Idempotency-Key", "value": "{{$guid}}" }], "url": "{{baseUrl}}/bookings/{{bookingId}}/payments", "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } } } },
+    { "name": "7-pay-retry-same-key (idempotent replay)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Idempotency-Key", "value": "SAME-AS-6" }], "url": "{{baseUrl}}/bookings/{{bookingId}}/payments", "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } } } },
+    { "name": "8-webhook-duplicate (send same TRANSACTION twice, expect ALREADY_PROCESSED/DUPLICATE_WEBHOOK)", "request": { "method": "POST", "url": "{{baseUrl}}/payments/paymob/webhook?hmac=<valid-hmac>", "body": { "mode": "raw", "raw": "{\"type\":\"TRANSACTION\",\"obj\":{}}", "options": { "raw": { "language": "json" } } } } },
+    { "name": "9-admin-list-bookings", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/bookings?status=PENDING_PAYMENT&limit=10" } },
+    { "name": "10-admin-cancel-booking", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/bookings/{{bookingId}}/cancel" } },
+    { "name": "11-health-ready", "request": { "method": "GET", "url": "{{baseUrl}}/health/ready" } }
+  ]
+}

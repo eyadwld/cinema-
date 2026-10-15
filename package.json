@@ -1,0 +1,36 @@
+{
+  "name": "cinema",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon -L src/server.js",
+    "start": "node src/server.js",
+    "worker": "nodemon -L src/workers/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "argon2": "^0.45.1",
+    "bullmq": "^6.3.11",
+    "cloudinary": "^2.11.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.4",
+    "multer": "^2.4.0",
+    "otpauth": "^9.5.2",
+    "redis": "^6.3.0",
+    "resend": "^6.32.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

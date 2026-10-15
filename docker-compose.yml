@@ -1,0 +1,62 @@
+# Production stack.
+#   docker compose up --build -d
+services:
+  node-app:
+    build: .
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build: .
+    command: npm run worker
+    env_file:
+      - .env
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Single-node replica set (required for transactions).
+  # The app initiates the set once on startup (see src/config/db.js),
+  # so no init helper service is needed.
+  mongo:
+    image: mongo:9.0.2
+    # keyFile is mandatory for auth + replica set; generated on start.
+    entrypoint: >
+      bash -c '
+      [ -f /tmp/mongo-key ] || openssl rand -base64 756 > /tmp/mongo-key;
+      chmod 400 /tmp/mongo-key && chown 999:999 /tmp/mongo-key;
+      exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo-key;
+      '
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: eyad
+      MONGO_INITDB_ROOT_PASSWORD: eyad208
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-db-dev:/data/db
+    healthcheck:
+      test: >
+        mongosh "mongodb://eyad:eyad208@localhost:27017/admin?directConnection=true" --quiet --eval "try { quit(rs.status().myState === 1 ? 0 : 1) } catch (e) { try { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) } catch (e2) {} quit(1) }"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  redis:
+    image: redis:8.10.2
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mongo-db-dev:
+  redis-data:
