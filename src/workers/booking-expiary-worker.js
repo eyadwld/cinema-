@@ -1,27 +1,39 @@
 import { Worker } from "bullmq";
 import env from "../config/env.js";
+
 import { expireBooking } from "../modules/booking/booking-expiary-service.js";
 
-export const bookingExpiryWorker = new Worker(
+const bookingExpiryWorker = new Worker(
   "booking",
   async (job) => {
-    if (job.name !== "expire-booking") {
-      throw new Error(`Unknown booking job: ${job.name}`);
-    }
+    console.log(`Processing job ${job.id}`);
 
-    return expireBooking(job.data.bookingId);
+    switch (job.name) {
+      case "expire-booking": {
+        const result = await expireBooking(job.data.bookingId);
+
+        console.log(`Expire booking ${job.data.bookingId}:`, result);
+
+        break;
+      }
+
+      default:
+        throw new Error(`Unknown booking job: ${job.name}`);
+    }
   },
   {
     connection: {
       url: env.redisUrl,
     },
-    concurrency: 10,
   },
 );
 
-bookingExpiryWorker.on("failed", (job, error) => {
-  console.error("Booking expiry job failed", {
-    jobId: job?.id,
-    error: error.message,
-  });
+bookingExpiryWorker.on("completed", (job) => {
+  console.log(`Job ${job.id} completed`);
 });
+
+bookingExpiryWorker.on("failed", (job, error) => {
+  console.error(`Job ${job?.id} failed:`, error);
+});
+
+export default bookingExpiryWorker;

@@ -1,25 +1,15 @@
 import { Router } from "express";
-
+import * as controller from "./payment-controller.js";
 import { requireAuth } from "../../middlewares/is-auth.js";
-
 import validate from "../../middlewares/validation.js";
-
-import asyncHandler from "../../utils/async-handler.js";
-
-import { createBookingPayment } from "./payment-controller.js";
-import { handlePaymobWebhook } from "./webhook-controller.js";
-
-import { initiatePaymentValidator } from "./payment-validator.js";
+import { getPaymentValidator, initiatePaymentValidator } from "./payment-validator.js";
 
 const router = Router();
 
-router.post(
-  "/bookings/:bookingId/payments",
-  requireAuth,
-  validate(initiatePaymentValidator),
-  asyncHandler(createBookingPayment),
-);
+router.post("/bookings/:bookingId/payments", requireAuth, validate(initiatePaymentValidator), controller.initiate);
 
-router.post("/payments/paymob/webhook", asyncHandler(handlePaymobWebhook));
+router.get("/payments/:paymentId", requireAuth, validate(getPaymentValidator), controller.getOne);
+
+router.post("/payments/paymob/webhook", controller.webhook);
 
 export default router;

@@ -6,30 +6,21 @@ const paymentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Booking",
       required: true,
+      unique: true,
+      index: true,
     },
-
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       index: true,
     },
-
-    provider: {
-      type: String,
-      enum: ["PAYMOB"],
-      required: true,
-    },
-
-    status: {
-      type: String,
-      enum: ["PENDING", "SUCCEEDED", "FAILED", "CANCELLED"],
-      default: "PENDING",
+    showtimeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Showtime",
       required: true,
       index: true,
     },
-
-    // Always in the smallest currency unit, e.g. piastres for EGP.
     amountMinor: {
       type: Number,
       required: true,
@@ -39,21 +30,39 @@ const paymentSchema = new mongoose.Schema(
         message: "amountMinor must be a safe integer",
       },
     },
-
     currency: {
       type: String,
-      enum: ["EGP"],
       default: "EGP",
       required: true,
+      enum: ["EGP"],
     },
-
-    successfulAttemptId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "PaymentAttempt",
+    status: {
+      type: String,
+      enum: ["PENDING", "SUCCESS", "FAILED"],
+      default: "PENDING",
+      required: true,
+      index: true,
+    },
+    paymobIntentionId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    paymobOrderId: {
+      type: Number,
+      default: null,
+      index: true,
+    },
+    clientSecret: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    checkoutUrl: {
+      type: String,
       default: null,
     },
-
-    paidAt: {
+    confirmedAt: {
       type: Date,
       default: null,
     },
@@ -61,8 +70,7 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// One logical payment per booking.
-paymentSchema.index({ bookingId: 1 }, { unique: true });
 paymentSchema.index({ userId: 1, createdAt: -1 });
+paymentSchema.index({ status: 1, createdAt: 1 });
 
 export default mongoose.model("Payment", paymentSchema);

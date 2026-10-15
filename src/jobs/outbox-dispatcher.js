@@ -105,13 +105,20 @@ const dispatchEvent = async (event) => {
     }
 
     case "CONFIRM_PAID_BOOKING": {
-      const { paymentId, attemptId } = event.payload;
+      const { paymentId, attemptId, webhookEventId } = event.payload;
 
       await paymentQueue.add(
         "confirm-paid-booking",
-        { paymentId, attemptId },
+        { paymentId, attemptId, webhookEventId },
         {
-          jobId: `confirm-paid-booking-${attemptId}`,
+          jobId: `outbox-${event._id}`,
+          attempts: 5,
+          backoff: {
+            type: "exponential",
+            delay: 5_000,
+          },
+          removeOnComplete: 1_000,
+          removeOnFail: 5_000,
         },
       );
 

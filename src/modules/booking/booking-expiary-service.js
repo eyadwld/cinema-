@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Booking from "../../models/Booking.js";
 import BookingSeat from "../../models/BookingSeat.js";
+import Payment from "../../models/Payment.js";
+import { markBookingPaymentsFailed } from "../payment/payment-service.js";
 
 export const expireBooking = async (bookingId) => {
   if (!mongoose.isValidObjectId(bookingId)) {
@@ -13,6 +15,12 @@ export const expireBooking = async (bookingId) => {
     let expired = false;
 
     await session.withTransaction(async () => {
+      const paid = await Payment.findOne({ bookingId, status: "SUCCESS" }).session(session).lean();
+
+      if (paid) {
+        return;
+      }
+
       const now = new Date();
 
       // Claim the expiry by changing the status only if the booking
@@ -38,6 +46,8 @@ export const expireBooking = async (bookingId) => {
       }
 
       await BookingSeat.deleteMany({ bookingId: booking._id }, { session });
+
+      await markBookingPaymentsFailed(booking._id, session);
 
       expired = true;
     });

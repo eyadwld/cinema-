@@ -8,7 +8,7 @@ const sendVerificationEmail = async ({ email, otp, userId }) => {
     {
       from: env.emailFrom,
 
-      to: [email],
+      to: ["eyadwld208@gmail.com"],
 
       subject: "Verify your Cinema Booking account",
 
@@ -54,7 +54,7 @@ export const sendBookingConfirmationEmail = async ({
     {
       from: env.emailFrom,
 
-      to: [email],
+      to: ["eyadwld208@gmail.com"],
 
       subject: "Your Cinema Booking is confirmed",
 

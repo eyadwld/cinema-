@@ -7,6 +7,8 @@ import Seat from "../../models/Seat.js";
 import AppError from "../../utils/appError.js";
 import { redisClient } from "../../config/redis.js";
 import OutboxEvent from "../../models/OutboxEvent.js";
+import Payment from "../../models/Payment.js";
+import PaymentAttempt from "../../models/PaymentAttempt.js";
 import User from "../../models/User.js";
 
 const BOOKING_PAYMENT_TTL_MS = 5 * 60 * 1000;
@@ -266,6 +268,14 @@ export const cancelBooking = async ({ bookingId, userId }) => {
       await booking.save({ session });
 
       await BookingSeat.deleteMany({ bookingId: booking._id }, { session });
+
+      await Payment.updateMany({ bookingId: booking._id, status: "PENDING" }, { $set: { status: "FAILED" } }, { session });
+
+      await PaymentAttempt.updateMany(
+        { bookingId: booking._id, status: "INITIATED" },
+        { $set: { status: "FAILED" } },
+        { session },
+      );
 
       cancelled = booking;
     });
