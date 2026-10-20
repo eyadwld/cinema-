@@ -6,12 +6,6 @@ import {
   updateMovie,
 } from "./movies-service.js";
 
-import AppError from "../../utils/appError.js";
-
-import uploadToCloudinary, {
-  deleteFromCloudinary,
-} from "../../utils/uploadToCloudinary.js";
-
 export const create = async (req, res) => {
   const movie = await createMovie(req.body, req.file);
 
@@ -40,32 +34,7 @@ export const getOne = async (req, res) => {
 };
 
 export const update = async (req, res) => {
-  if (req.file) {
-    const previous =
-      req.body.posterUrl === undefined
-        ? await getMovieById(req.params.id)
-        : null;
-
-    try {
-      const uploaded = await uploadToCloudinary({
-        fileBuffer: req.file.buffer,
-        folder: "cinema/posters",
-      });
-
-      req.body.posterUrl = {
-        url: uploaded.secure_url,
-        publicId: uploaded.public_id,
-      };
-    } catch {
-      throw new AppError("Poster upload failed", 502);
-    }
-
-    if (previous?.posterUrl?.publicId) {
-      deleteFromCloudinary(previous.posterUrl.publicId).catch(() => {});
-    }
-  }
-
-  const movie = await updateMovie(req.params.id, req.body);
+  const movie = await updateMovie(req.params.id, req.body, req.file);
 
   res.status(200).json({
     success: true,

@@ -1,16 +1,19 @@
 import Movie from "../../models/Movie.js";
 import AppError from "../../utils/appError.js";
-import uploadToCloudinary from "../../utils/uploadToCloudinary.js";
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from "../../utils/uploadToCloudinary.js";
 
 export const createMovie = async (data, file) => {
   if (!file) {
     throw new AppError("Image Cover is required", 400);
   }
 
-  let result;
+  let uploaded;
 
   try {
-    result = await uploadToCloudinary({
+    uploaded = await uploadToCloudinary({
       fileBuffer: file.buffer,
       folder: "cinema/posters",
     });
@@ -28,8 +31,8 @@ export const createMovie = async (data, file) => {
     ...rest,
     genre: normalizedGenre,
     posterUrl: {
-      url: result.secure_url,
-      publicId: result.public_id,
+      url: uploaded.secure_url,
+      publicId: uploaded.public_id,
     },
   });
 
@@ -60,7 +63,7 @@ export const getMovieById = async (movieId) => {
   return movie;
 };
 
-export const updateMovie = async (movieId, updates) => {
+export const updateMovie = async (movieId, updates, file) => {
   const allowedUpdates = {};
 
   const fields = [
@@ -86,8 +89,27 @@ export const updateMovie = async (movieId, updates) => {
       genre === undefined ? undefined : Array.isArray(genre) ? genre : [genre];
   }
 
-  if (updates.posterUrl !== undefined) {
-    allowedUpdates.posterUrl = updates.posterUrl;
+  if (file !== undefined) {
+    const previous =
+      updates.posterUrl === undefined ? await getMovieById(movieId) : null;
+
+    try {
+      const uploaded = await uploadToCloudinary({
+        fileBuffer: file.buffer,
+        folder: "cinema/posters",
+      });
+
+      allowedUpdates.posterUrl = {
+        url: uploaded.secure_url,
+        publicId: uploaded.public_id,
+      };
+    } catch {
+      throw new AppError("Poster upload failed", 502);
+    }
+
+    if (previous?.posterUrl?.publicId) {
+      deleteFromCloudinary(previous.posterUrl.publicId);
+    }
   }
 
   const movie = await Movie.findByIdAndUpdate(

@@ -39,10 +39,6 @@ export const createScreen = async ({
     columns,
   });
 
-  /*
-   * Fresh screens have no seats, so generating them inline
-   * can never conflict. It saves the admin a second request.
-   */
   let seatsGenerated = 0;
 
   if (autoGenerateSeats === true) {

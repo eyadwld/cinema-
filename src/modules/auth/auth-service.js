@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Error } from "mongoose";
 import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 
@@ -49,9 +49,6 @@ const createSession = async ({ user, userAgent, ip }) => {
     sessionId: session._id,
   });
 
-  /*
-   * Never store the raw refresh token.
-   */
   session.refreshTokenHash = hashToken(refreshToken);
 
   await session.save();
@@ -71,10 +68,6 @@ const createSession = async ({ user, userAgent, ip }) => {
 export const registerService = async ({ name, email, password }) => {
   const normalizedEmail = email.trim().toLowerCase();
 
-  /*
-   * The admin account is bootstrapped from env, never from
-   * client input. Any other email registers as a plain user.
-   */
   const adminEmail = env.ADMIN_EMAIL?.trim().toLowerCase();
 
   const role = adminEmail && normalizedEmail === adminEmail ? "ADMIN" : "USER";
@@ -133,10 +126,6 @@ export const registerService = async ({ name, email, password }) => {
 
     return user;
   } catch (error) {
-    /*
-     * MongoDB unique index is the final protection
-     * against concurrent registration requests.
-     */
     if (error?.code === 11000) {
       throw new AppError("Unable to create account", 409);
     }
@@ -195,26 +184,6 @@ export const resendVerificationEmail = async ({ email }) => {
   }
 
   const otp = await createEmailVerificationOtp(user._id);
-
-  /*
-   * IMPORTANT:
-   *
-   * Do not directly call BullMQ here.
-   *
-   * The better architecture is:
-   *
-   * Redis OTP
-   *      ↓
-   * MongoDB Outbox
-   *      ↓
-   * Outbox Worker
-   *      ↓
-   * BullMQ
-   *      ↓
-   * Email Worker
-   *      ↓
-   * Resend
-   */
 
   await OutboxEvent.create({
     type: "VERIFY_EMAIL",
@@ -309,10 +278,6 @@ export const refreshSessionService = async (refreshToken) => {
     throw new AppError("Invalid refresh token", 401);
   }
 
-  /*
-   * Prevent access tokens from being used
-   * as refresh tokens.
-   */
   if (decoded.type !== "refresh") {
     throw new AppError("Invalid refresh token", 401);
   }
@@ -370,15 +335,6 @@ export const refreshSessionService = async (refreshToken) => {
 
   const newRefreshHash = hashToken(newRefreshToken);
 
-  /*
-   * IMPORTANT:
-   *
-   * This is the race-condition protection.
-   *
-   * Only one concurrent request can replace:
-   *
-   * OLD HASH → NEW HASH
-   */
   const updatedSession = await Session.findOneAndUpdate(
     {
       _id: session._id,
@@ -425,12 +381,6 @@ export const revokeSessionByTokenService = async (refreshToken) => {
   try {
     decoded = jwt.verify(refreshToken, jwtConfig.refreshSecret);
   } catch {
-    /*
-     * Logout should be idempotent.
-     *
-     * Invalid/expired token doesn't need
-     * to produce a server error.
-     */
     return;
   }
 

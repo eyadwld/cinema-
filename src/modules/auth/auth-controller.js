@@ -60,16 +60,6 @@ export const login = async (req, res, next) => {
       ip: req.ip,
     });
 
-    /*
-     * Refresh token:
-     *
-     * - HttpOnly
-     * - Secure in production
-     * - SameSite
-     * - /api/auth path
-     *
-     * It is NOT returned in JSON.
-     */
     setRefreshTokenCookie(res, result.refreshToken);
 
     res.json({
@@ -99,21 +89,6 @@ export const refresh = async (req, res, next) => {
 
     const result = await service.refreshSessionService(refreshToken);
 
-    /*
-     * Refresh-token rotation.
-     *
-     * Old refresh token:
-     *
-     *     OLD
-     *      ↓
-     *    invalid
-     *
-     * New refresh token:
-     *
-     *     NEW
-     *      ↓
-     *   HttpOnly cookie
-     */
     setRefreshTokenCookie(res, result.refreshToken);
 
     res.json({
@@ -172,20 +147,6 @@ export const logoutAll = async (req, res, next) => {
 
 export const me = async (req, res, next) => {
   try {
-    /*
-     * auth middleware:
-     *
-     * JWT
-     *   ↓
-     * req.auth
-     *
-     * Example:
-     *
-     * req.auth = {
-     *     userId: userId,
-     *     sessionId: sessionId
-     * }
-     */
     const user = await service.meService(req.auth.userId);
 
     res.json({

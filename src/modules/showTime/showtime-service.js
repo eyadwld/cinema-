@@ -72,11 +72,6 @@ export const createShowtime = async ({
     price,
   });
 
-  /*
-   * Return the populated view, the same shape
-   * getShowtimeById serves, so the admin sees
-   * movie, screen and cinema names immediately.
-   */
   return getShowtimeById(showtime._id);
 };
 
@@ -240,7 +235,7 @@ export const getShowtimes = async ({
 
   // Filter by cinema after population because cinemaId belongs to Screen.
   const result = cinemaId
-    ? (() => {
+    ? () => {
         if (!mongoose.isValidObjectId(cinemaId)) {
           throw new AppError("Invalid cinema ID", 400);
         }
@@ -250,7 +245,7 @@ export const getShowtimes = async ({
             showtime.screenId?.cinemaId?._id?.toString() ===
             cinemaId.toString(),
         );
-      })()
+      }
     : showtimes;
 
   return result;
