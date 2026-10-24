@@ -257,3 +257,53 @@ export const resendVerification = async (req, res, next) => {
     next(error);
   }
 };
+
+/*
+|--------------------------------------------------------------------------
+| Password Reset
+|--------------------------------------------------------------------------
+*/
+
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    await service.requestPasswordResetService({
+      email,
+    });
+
+    res.json({
+      success: true,
+
+      message: "If the account exists, a password reset code has been sent.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, password } = req.body;
+
+    const user = await service.resetPasswordService({
+      email,
+      otp,
+      password,
+    });
+
+    res.json({
+      success: true,
+
+      message: "Password reset successfully",
+
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

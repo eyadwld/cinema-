@@ -5,6 +5,7 @@ import User from "../models/User.js";
 
 import sendVerificationEmail, {
   sendBookingConfirmationEmail,
+  sendPasswordResetEmail,
 } from "../services/email/resend-service.js";
 
 import { createEmailVerificationOtp } from "../modules/auth/otp-service.js";
@@ -28,7 +29,18 @@ const emailWorker = new Worker(
         break;
       }
 
+      case "password-reset": {
+        await sendPasswordResetEmail({
+          email: job.data.email,
+          otp: job.data.otp,
+          userId: job.data.userId,
+        });
+
+        break;
+      }
+
       case "booking-confirmation": {
+        console.log("from email booking worker");
         const user = await User.findById(job.data.userId)
           .select("email")
           .lean();

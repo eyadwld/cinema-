@@ -11,6 +11,8 @@ import {
   revokeSession,
   verifyEmail,
   resendVerification,
+  forgotPassword,
+  resetPassword,
 } from "./auth-controller.js";
 
 import {
@@ -18,12 +20,17 @@ import {
   loginValidator,
   verifyEmailValidator,
   resendVerificationValidator,
+  forgotPasswordValidator,
+  resetPasswordValidator,
   sessionIdValidator,
 } from "./auth-validators.js";
 
 import validate from "../../middlewares/validation.js";
 
-import { authMiddleware } from "../../middlewares/is-auth.js";
+import {
+  authMiddleware,
+  requireAuth,
+} from "../../middlewares/is-auth.js";
 
 import asyncHandler from "../../utils/async-handler.js";
 
@@ -47,6 +54,18 @@ router.post(
   "/resend-verification",
   validate(resendVerificationValidator),
   asyncHandler(resendVerification),
+);
+
+router.post(
+  "/forgot-password",
+  validate(forgotPasswordValidator),
+  asyncHandler(forgotPassword),
+);
+
+router.post(
+  "/reset-password",
+  validate(resetPasswordValidator),
+  asyncHandler(resetPassword),
 );
 
 router.post("/refresh", asyncHandler(refresh));

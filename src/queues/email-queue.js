@@ -6,11 +6,11 @@ const emailQueue = new Queue("email", {
     url: env.redisUrl,
   },
   defaultJobOptions: {
-    attempts: 3,
+    attempts: 5,
 
     backoff: {
       type: "exponential",
-      delay: 2000,
+      delay: 5000,
     },
 
     removeOnComplete: {

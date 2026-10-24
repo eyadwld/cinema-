@@ -29,6 +29,20 @@ export const getAll = asyncHandler(async (req, res) => {
   });
 });
 
+export const getMine = asyncHandler(async (req, res) => {
+  const bookings = await bookingService.getBookingsList({
+    userId: req.auth.userId,
+    status: req.query.status,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+  });
+
+  res.status(200).json({
+    success: true,
+    results: bookings.length,
+    data: { bookings },
+  });
+});
+
 export const getOne = asyncHandler(async (req, res) => {
   const booking = await bookingService.getBookingById({
     bookingId: req.params.bookingId,

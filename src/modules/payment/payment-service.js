@@ -428,7 +428,7 @@ export const confirmPaidBooking = async ({
     throw new Error("Invalid payment ID");
   }
 
-  const payment = await Payment.findById(paymentId);
+  const payment = await Payment.findById(paymentId).select("+clientSecret");
 
   if (!payment) {
     throw new Error("Payment not found for confirmation");
@@ -472,7 +472,10 @@ export const confirmPaidBooking = async ({
     }
   } else if (payment.paymobIntentionId) {
     try {
-      const intention = await retrieveIntention(payment.paymobIntentionId);
+      const intention = await retrieveIntention(
+        payment.clientSecret,
+        payment.paymobOrderId,
+      );
       success = intention?.status === "paid" || intention?.confirmed === true;
       const intentionAmount = Number(
         intention?.intention_detail?.amount ?? intention?.amount,
@@ -492,14 +495,16 @@ export const confirmPaidBooking = async ({
 
   const session = await mongoose.startSession();
 
+  /*
+   * The outbox events are deduplicated by their dedupeKey.
+   *
+   * A duplicate key aborts the whole transaction, so the error cannot
+   * be swallowed here. It is left to the owner of the transaction,
+   * which treats it as "already recorded".
+   */
+
   const safeOutboxCreate = async (doc) => {
-    try {
-      await OutboxEvent.create([doc], { session });
-    } catch (error) {
-      if (error?.code !== 11000) {
-        throw error;
-      }
-    }
+    await OutboxEvent.create([doc], { session });
   };
 
   try {
@@ -628,6 +633,15 @@ export const confirmPaidBooking = async ({
         await webhookEvent.save({ session });
       }
     });
+  } catch (error) {
+    /*
+     * A duplicate dedupeKey means the confirmation was already
+     * recorded by another run, so there is nothing left to do.
+     */
+
+    if (error?.code !== 11000) {
+      throw error;
+    }
   } finally {
     await session.endSession();
   }
@@ -652,7 +666,7 @@ export const reconcilePaymentAttempt = async (attemptId) => {
     return { reconciled: false, reason: "TOO_EARLY" };
   }
 
-  const payment = await Payment.findById(attempt.paymentId);
+  const payment = await Payment.findById(attempt.paymentId).select("+clientSecret");
 
   if (!payment) {
     return { reconciled: false, reason: "NO_PAYMENT" };
@@ -692,18 +706,29 @@ export const reconcilePaymentAttempt = async (attemptId) => {
   }
 
   try {
-    const intention = await retrieveIntention(payment.paymobIntentionId);
+    const intention = await retrieveIntention(
+      payment.clientSecret,
+      payment.paymobOrderId,
+    );
 
     if (intention?.status === "paid" || intention?.confirmed === true) {
+      /*
+       * Paymob confirms the payment but the webhook never arrived.
+       *
+       * The confirmation is queued through the outbox so the booking
+       * is confirmed and the confirmation email is sent. The amount
+       * and the booking state are still verified by confirmPaidBooking.
+       */
+
       try {
         await OutboxEvent.create([
           {
-            type: "PAYMENT_RECONCILIATION_REQUIRED",
+            type: "CONFIRM_PAID_BOOKING",
             aggregateId: payment._id,
             payload: {
               paymentId: payment._id.toString(),
               attemptId: attempt._id.toString(),
-              reason: "INTENTION_PAID_WITHOUT_WEBHOOK",
+              webhookEventId: null,
             },
             status: "PENDING",
             attempts: 0,

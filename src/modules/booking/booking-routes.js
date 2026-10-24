@@ -18,6 +18,18 @@ router.get(
   controller.getAll,
 );
 
+/*
+ * It must be registered before "/:bookingId", otherwise the id
+ * validator rejects the "mine" segment.
+ */
+
+router.get(
+  "/mine",
+  requireAuth,
+  validate(listBookingsValidator),
+  controller.getMine,
+);
+
 router.get(
   "/:bookingId",
   requireAuth,

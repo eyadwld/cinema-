@@ -54,8 +54,8 @@ export const createIntention = async (payload) => {
   return data;
 };
 
-export const retrieveIntention = async (reference) => {
-  if (!reference) {
+export const retrieveIntention = async (clientSecret, acceptOrderId) => {
+  if (!clientSecret || !acceptOrderId) {
     throw new AppError("Reference is required", 400);
   }
 
@@ -63,14 +63,35 @@ export const retrieveIntention = async (reference) => {
     throw new AppError("Payment provider is not configured", 500);
   }
 
-  const url = `${baseUrl()}/${API_VERSION}/intention/${reference}`;
+  /*
+   * Paymob has no read endpoint for an intention, it only answers
+   * GET /v1/intention/{id} with "405 Method Not Allowed".
+   *
+   * The intention is read back through the update endpoint, which
+   * takes the client secret and the order id and returns the current
+   * intention including its "status" and "confirmed" fields.
+   */
+
+  const url = `${baseUrl()}/${API_VERSION}/intention/${clientSecret}/`;
 
   const response = await fetch(url, {
-    method: "GET",
+    method: "PUT",
     headers: authHeaders(),
+    body: JSON.stringify({ accept_order_id: acceptOrderId }),
   });
 
   const data = await parseBody(response);
+
+  /*
+   * An expired intention is a normal outcome, it means the payment
+   * window closed before the payment was completed.
+   */
+
+  if (response.status === 404 || response.status === 410) {
+    logInfo("Paymob intention is expired", { status: response.status });
+
+    return data;
+  }
 
   if (!response.ok) {
     logError("Paymob intention retrieve failed", {

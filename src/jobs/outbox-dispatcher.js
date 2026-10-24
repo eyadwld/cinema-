@@ -67,6 +67,23 @@ const dispatchEvent = async (event) => {
 
       break;
 
+    case "PASSWORD_RESET":
+      await emailQueue.add(
+        "password-reset",
+        {
+          userId: event.aggregateId.toString(),
+
+          email: event.payload.email,
+
+          otp: event.payload.otp,
+        },
+        {
+          jobId: `outbox-${event._id}`,
+        },
+      );
+
+      break;
+
     case "EXPIRE_BOOKING": {
       const { bookingId, expiresAt } = event.payload;
 

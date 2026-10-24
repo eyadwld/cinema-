@@ -9,13 +9,17 @@ const MAX_OTP_ATTEMPTS = 5;
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
-export const createEmailVerificationOtp = async (userId) => {
+const OTP_SCOPE_EMAIL_VERIFICATION = "email-verification";
+
+const OTP_SCOPE_PASSWORD_RESET = "password-reset";
+
+const createScopedOtp = async (scope, userId) => {
   const otp = await generateOtp();
   const otpHash = await hashOtp(otp);
 
-  const otpKey = `otp:email-verification:${userId}`;
-  const attemptsKey = `otp:email-verification:attempts:${userId}`;
-  const cooldownKey = `otp:email-verification:cooldown:${userId}`;
+  const otpKey = `otp:${scope}:${userId}`;
+  const attemptsKey = `otp:${scope}:attempts:${userId}`;
+  const cooldownKey = `otp:${scope}:cooldown:${userId}`;
 
   const script = `
         local cooldownCreated = redis.call(
@@ -67,9 +71,9 @@ export const createEmailVerificationOtp = async (userId) => {
   return otp;
 };
 
-export const verifyEmailVerificationOtp = async ({ userId, otp }) => {
-  const otpKey = `otp:email-verification:${userId}`;
-  const attemptsKey = `otp:email-verification:attempts:${userId}`;
+const verifyScopedOtp = async (scope, userId, otp) => {
+  const otpKey = `otp:${scope}:${userId}`;
+  const attemptsKey = `otp:${scope}:attempts:${userId}`;
 
   const submittedHash = await hashOtp(otp);
 
@@ -142,3 +146,15 @@ export const verifyEmailVerificationOtp = async ({ userId, otp }) => {
       throw new Error("Unexpected OTP verification result");
   }
 };
+
+export const createEmailVerificationOtp = async (userId) =>
+  createScopedOtp(OTP_SCOPE_EMAIL_VERIFICATION, userId);
+
+export const verifyEmailVerificationOtp = async ({ userId, otp }) =>
+  verifyScopedOtp(OTP_SCOPE_EMAIL_VERIFICATION, userId, otp);
+
+export const createPasswordResetOtp = async (userId) =>
+  createScopedOtp(OTP_SCOPE_PASSWORD_RESET, userId);
+
+export const verifyPasswordResetOtp = async ({ userId, otp }) =>
+  verifyScopedOtp(OTP_SCOPE_PASSWORD_RESET, userId, otp);

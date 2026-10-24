@@ -21,6 +21,8 @@ import {
 import {
   createEmailVerificationOtp,
   verifyEmailVerificationOtp,
+  createPasswordResetOtp,
+  verifyPasswordResetOtp,
 } from "./otp-service.js";
 
 import {
@@ -110,6 +112,8 @@ export const registerService = async ({ name, email, password }) => {
        * Redis stores the hash, not the plaintext OTP.
        */
 
+      const otp = await createEmailVerificationOtp(user._id);
+
       await OutboxEvent.create(
         [
           {
@@ -117,6 +121,7 @@ export const registerService = async ({ name, email, password }) => {
             aggregateId: user._id,
             payload: {
               email: user.email,
+              otp,
             },
           },
         ],
@@ -193,6 +198,59 @@ export const resendVerificationEmail = async ({ email }) => {
       otp,
     },
   });
+};
+
+export const requestPasswordResetService = async ({ email }) => {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const user = await User.findOne({
+    email: normalizedEmail,
+  });
+
+  if (!user) {
+    return;
+  }
+
+  const otp = await createPasswordResetOtp(user._id);
+
+  await OutboxEvent.create({
+    type: "PASSWORD_RESET",
+    aggregateId: user._id,
+    payload: {
+      email: user.email,
+      otp,
+    },
+  });
+};
+
+export const resetPasswordService = async ({ email, otp, password }) => {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const user = await User.findOne({
+    email: normalizedEmail,
+  });
+
+  if (!user) {
+    throw new AppError("Invalid verification request", 400);
+  }
+
+  await verifyPasswordResetOtp({
+    userId: user._id,
+    otp,
+  });
+
+  user.hashedPassword = await argon2.hash(password);
+
+  await user.save();
+
+  /*
+   * Every existing session is revoked, the password
+   * was reset outside of the sessions that are open.
+   */
+
+  await revokeAllSessionsService(user._id);
+
+  return user;
 };
 
 export const loginService = async ({ email, password, userAgent, ip }) => {

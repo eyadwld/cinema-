@@ -12,9 +12,20 @@ import {
   recoverSuccessfulPaymentsWithoutConfirmedBookings,
 } from "../jobs/payment-recovery.js";
 
-import "./email-worker.js";
-import "./booking-expiary-worker.js";
-import "./payment-reconciliation-worker.js";
+/*
+ * The queue consumers must be registered here.
+ *
+ * Without them the jobs stay in the "waiting" list forever
+ * and the email/booking/payment handlers never run.
+ */
+
+import emailWorker from "./email-worker.js";
+
+import bookingExpiryWorker from "./booking-expiary-worker.js";
+
+import paymentWorker from "./payment-reconciliation-worker.js";
+
+import mediaWorker from "./media-worker.js";
 
 const startWorker = async () => {
   try {
@@ -22,6 +33,10 @@ const startWorker = async () => {
     await connectRedis();
 
     console.log("Worker process started");
+
+    console.log(
+      `Queue consumers ready: ${emailWorker.name}, ${bookingExpiryWorker.name}, ${paymentWorker.name}, ${mediaWorker.name}`,
+    );
 
     setInterval(
       async () => {

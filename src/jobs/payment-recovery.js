@@ -27,7 +27,7 @@ export const recoverStalePaymentAttempts = async () => {
           jobId: `recover-${attempt._id}`,
           attempts: 3,
           backoff: { type: "exponential", delay: 5_000 },
-          removeOnComplete: 1_000,
+          removeOnComplete: 60,
           removeOnFail: 5_000,
         },
       );
@@ -67,7 +67,7 @@ export const recoverStaleInProgressAttempts = async () => {
           jobId: `recover-inprogress-${attempt._id}`,
           attempts: 3,
           backoff: { type: "exponential", delay: 5_000 },
-          removeOnComplete: 1_000,
+          removeOnComplete: 60,
           removeOnFail: 5_000,
         },
       );

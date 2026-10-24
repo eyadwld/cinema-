@@ -1,24 +1,11 @@
 import Movie from "../../models/Movie.js";
 import AppError from "../../utils/appError.js";
-import {
-  uploadToCloudinary,
-  deleteFromCloudinary,
-} from "../../utils/uploadToCloudinary.js";
+
+import mediaQueue from "../../queues/media-queue.js";
 
 export const createMovie = async (data, file) => {
   if (!file) {
     throw new AppError("Image Cover is required", 400);
-  }
-
-  let uploaded;
-
-  try {
-    uploaded = await uploadToCloudinary({
-      fileBuffer: file.buffer,
-      folder: "cinema/posters",
-    });
-  } catch {
-    throw new AppError("Poster upload failed", 502);
   }
 
   const genre = data.genre ?? data["genre[]"];
@@ -30,11 +17,25 @@ export const createMovie = async (data, file) => {
   const movie = await Movie.create({
     ...rest,
     genre: normalizedGenre,
-    posterUrl: {
-      url: uploaded.secure_url,
-      publicId: uploaded.public_id,
-    },
   });
+
+  /*
+   * The poster is uploaded in the background, the movie is
+   * returned with an empty poster until the job lands.
+   */
+
+  await mediaQueue.add(
+    "upload-poster",
+    {
+      movieId: movie._id.toString(),
+      file: file.buffer.toString("base64"),
+      folder: "cinema/posters",
+      previousPublicId: null,
+    },
+    {
+      jobId: `poster-${movie._id}`,
+    },
+  );
 
   return movie;
 };
@@ -93,23 +94,23 @@ export const updateMovie = async (movieId, updates, file) => {
     const previous =
       updates.posterUrl === undefined ? await getMovieById(movieId) : null;
 
-    try {
-      const uploaded = await uploadToCloudinary({
-        fileBuffer: file.buffer,
+    /*
+     * The poster is uploaded in the background, the previous
+     * poster is deleted once the new one lands.
+     */
+
+    await mediaQueue.add(
+      "upload-poster",
+      {
+        movieId: movieId.toString(),
+        file: file.buffer.toString("base64"),
         folder: "cinema/posters",
-      });
-
-      allowedUpdates.posterUrl = {
-        url: uploaded.secure_url,
-        publicId: uploaded.public_id,
-      };
-    } catch {
-      throw new AppError("Poster upload failed", 502);
-    }
-
-    if (previous?.posterUrl?.publicId) {
-      deleteFromCloudinary(previous.posterUrl.publicId);
-    }
+        previousPublicId: previous?.posterUrl?.publicId ?? null,
+      },
+      {
+        jobId: `poster-${movieId}-${Date.now()}`,
+      },
+    );
   }
 
   const movie = await Movie.findByIdAndUpdate(

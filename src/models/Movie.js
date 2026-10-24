@@ -46,12 +46,12 @@ const movieSchema = new mongoose.Schema(
     posterUrl: {
       url: {
         type: String,
-        required: true,
+        default: null,
       },
 
       publicId: {
         type: String,
-        required: true,
+        default: null,
       },
     },
 

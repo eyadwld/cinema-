@@ -51,6 +51,30 @@ export const resendVerificationValidator = [
   body("email").trim().isEmail().withMessage("Invalid email").normalizeEmail(),
 ];
 
+export const forgotPasswordValidator = [
+  body("email").trim().isEmail().withMessage("Invalid email").normalizeEmail(),
+];
+
+export const resetPasswordValidator = [
+  body("email").trim().isEmail().withMessage("Invalid email").normalizeEmail(),
+
+  body("otp")
+    .trim()
+    .matches(/^\d{6}$/)
+    .withMessage("OTP must be a 6-digit code"),
+
+  body("password")
+    .notEmpty()
+    .withMessage("Password is required")
+    .isLength({ min: 8, max: 128 })
+    .withMessage("Password must be between 8 and 128 characters"),
+
+  body("passwordConfirm")
+    .trim()
+    .custom((passConfirm, { req }) => passConfirm === req.body.password)
+    .withMessage("Passwords do not match"),
+];
+
 export const sessionIdValidator = [
   param("sessionId").isMongoId().withMessage("Invalid session ID"),
 ];

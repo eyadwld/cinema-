@@ -6,6 +6,7 @@ const outboxEventSchema = new mongoose.Schema(
       type: String,
       enum: [
         "VERIFY_EMAIL",
+        "PASSWORD_RESET",
         "BOOKING_CONFIRMATION",
         "EXPIRE_BOOKING",
         "RECONCILE_PAYMENT_ATTEMPT",

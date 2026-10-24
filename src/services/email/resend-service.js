@@ -34,7 +34,14 @@ const sendVerificationEmail = async ({ email, otp, userId }) => {
                 `,
     },
     {
-      idempotencyKey: `verify-email:${userId}`,
+      /*
+       * Resend caches the idempotency key for 24 hours and
+       * replays the first response instead of sending again.
+       *
+       * The OTP is part of the key so a new code is a new
+       * delivery, while a retried job stays idempotent.
+       */
+      idempotencyKey: `verify-email:${userId}:${otp}`,
     },
   );
 
@@ -76,6 +83,48 @@ export const sendBookingConfirmationEmail = async ({
     },
     {
       idempotencyKey: `booking-confirmation:${bookingId}:${userId}`,
+    },
+  );
+
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
+  }
+  console.log("Hello from resend booking confimationEmail");
+  return data;
+};
+
+export const sendPasswordResetEmail = async ({ email, otp, userId }) => {
+  const { data, error } = await resend.emails.send(
+    {
+      from: env.emailFrom,
+
+      to: ["eyadwld208@gmail.com"],
+
+      subject: "Reset your Cinema Booking password",
+
+      html: `
+                    <div>
+                        <h2>Reset your password</h2>
+
+                        <p>
+                            Your password reset code is:
+                        </p>
+
+                        <h1>${otp}</h1>
+
+                        <p>
+                            This code expires in 10 minutes.
+                        </p>
+
+                        <p>
+                            If you did not request a password reset,
+                            you can ignore this email.
+                        </p>
+                    </div>
+                `,
+    },
+    {
+      idempotencyKey: `password-reset:${userId}:${otp}`,
     },
   );
 

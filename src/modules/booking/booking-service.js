@@ -29,6 +29,7 @@ const RELEASE_SEAT_LOCKS_SCRIPT = `
 
 const buildSeatLockKeys = (showtimeId, seatIds) =>
   seatIds.map((seatId) => `lock:showtime:${showtimeId}:seat:${seatId}`);
+
 export const createBooking = async ({
   userId,
   showtimeId,
@@ -203,14 +204,87 @@ export const createBooking = async ({
   return booking;
 };
 
-export const getBookings = async ({ status, limit = 50 } = {}) => {
+export const getBookingsList = async ({ userId, status, limit = 50 } = {}) => {
   const filter = {};
+
+  if (userId) {
+    filter.userId = userId;
+  }
 
   if (status) {
     filter.status = status;
   }
 
-  return Booking.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
+  const bookings = await Booking.find(filter)
+    .populate("userId", "name email")
+    .populate({
+      path: "showtimeId",
+      select: "startsAt endsAt price",
+      populate: [
+        { path: "movieId", select: "title posterUrl" },
+        {
+          path: "screenId",
+          select: "name cinemaId",
+          populate: { path: "cinemaId", select: "name city" },
+        },
+      ],
+    })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  if (bookings.length === 0) {
+    return bookings;
+  }
+
+  const bookingIds = bookings.map((booking) => booking._id);
+
+  const bookingSeats = await BookingSeat.find({
+    bookingId: { $in: bookingIds },
+  })
+    .populate("seatId", "row number type")
+    .lean();
+
+  const payments = await Payment.find({
+    bookingId: { $in: bookingIds },
+  })
+    .select("bookingId status confirmedAt")
+    .lean();
+
+  const seatsByBooking = new Map();
+
+  for (const bookingSeat of bookingSeats) {
+    const seats = seatsByBooking.get(bookingSeat.bookingId.toString()) || [];
+
+    if (bookingSeat.seatId) {
+      seats.push({
+        row: bookingSeat.seatId.row,
+        number: bookingSeat.seatId.number,
+        type: bookingSeat.seatId.type,
+      });
+    }
+
+    seatsByBooking.set(bookingSeat.bookingId.toString(), seats);
+  }
+
+  const paymentByBooking = new Map();
+
+  for (const payment of payments) {
+    paymentByBooking.set(payment.bookingId.toString(), {
+      status: payment.status,
+      confirmedAt: payment.confirmedAt,
+    });
+  }
+
+  return bookings.map((booking) => ({
+    ...booking,
+    seats: seatsByBooking.get(booking._id.toString()) || [],
+    payment: paymentByBooking.get(booking._id.toString()) || null,
+  }));
+};
+
+export const getBookings = async ({ status, limit = 50 } = {}) => {
+  return getBookingsList({ status, limit });
 };
 
 const assertBookingAccess = async (booking, userId) => {
@@ -269,7 +343,11 @@ export const cancelBooking = async ({ bookingId, userId }) => {
 
       await BookingSeat.deleteMany({ bookingId: booking._id }, { session });
 
-      await Payment.updateMany({ bookingId: booking._id, status: "PENDING" }, { $set: { status: "FAILED" } }, { session });
+      await Payment.updateMany(
+        { bookingId: booking._id, status: "PENDING" },
+        { $set: { status: "FAILED" } },
+        { session },
+      );
 
       await PaymentAttempt.updateMany(
         { bookingId: booking._id, status: "INITIATED" },
